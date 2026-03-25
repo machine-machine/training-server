@@ -1,0 +1,76 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dexy-training-server"
+version = "0.1.0"
+description = "2DEXY GPU Training Server — train and export ML models for HotPath inference"
+requires-python = ">=3.12"
+
+dependencies = [
+    # API
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "python-multipart>=0.0.9",
+    # Task queue
+    "celery[redis]>=5.4.0",
+    "redis>=5.0.0",
+    # Database
+    "sqlalchemy[asyncio]>=2.0",
+    "asyncpg>=0.29.0",
+        "psycopg2-binary>=2.9.0",
+    "alembic>=1.13.0",
+    # ML core
+    "numpy>=1.26",
+    "pandas>=2.1",
+    "polars>=0.20",
+    "scikit-learn>=1.4",
+    "scipy>=1.12",
+    "numba>=0.59",
+    "xgboost>=2.0",
+    "lightgbm>=4.2",
+    # gRPC (HotPath artifact push)
+    "grpcio>=1.60.0",
+    "grpcio-tools>=1.60.0",
+    "protobuf>=4.25.0",
+    # Utilities
+    "httpx>=0.26",
+    "pydantic>=2.5",
+    "python-dotenv>=1.0",
+    "psutil>=5.9.0",
+]
+
+[project.optional-dependencies]
+gpu = [
+    "torch>=2.2.0",
+    "optuna>=3.5",
+    # Fraud model dependencies
+    "imbalanced-learn>=0.12.0",
+    "tpot>=0.12.0",
+]
+admin = [
+    "streamlit>=1.31.0",
+    "plotly>=5.18.0",
+    "sqlalchemy[asyncio]>=2.0",
+    "asyncpg>=0.29.0",
+    "psutil>=5.9.0",
+    "httpx>=0.26",
+]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.2.0",
+    "mypy>=1.8",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]

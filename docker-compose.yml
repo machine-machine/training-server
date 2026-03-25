@@ -1,0 +1,136 @@
+version: "3.8"
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    ports:
+      - "51490:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-dexy_training}:${POSTGRES_PASSWORD:-change_me_in_production}@postgres:5432/${POSTGRES_DB:-dexy_training}
+      - REDIS_URL=redis://redis:6379/0
+      - API_KEY=${API_KEY}
+      - MODEL_ARTIFACT_PATH=/data/models
+      - TRAINING_DATA_PATH=/data/datasets
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    volumes:
+      - model-artifacts:/data/models
+      - training-data:/data/datasets
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - training-net
+    restart: unless-stopped
+    labels:
+      - "coolify.managed=true"
+
+  celery-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    command: celery -A src.workers.celery_app worker --loglevel=info --concurrency=2
+    shm_size: '32gb'
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-dexy_training}:${POSTGRES_PASSWORD:-change_me_in_production}@postgres:5432/${POSTGRES_DB:-dexy_training}
+      - REDIS_URL=redis://redis:6379/0
+      - CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-0,1}
+      - MODEL_ARTIFACT_PATH=/data/models
+      - TRAINING_DATA_PATH=/data/datasets
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:512
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    volumes:
+      - model-artifacts:/data/models
+      - training-data:/data/datasets
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    networks:
+      - training-net
+    restart: unless-stopped
+
+  admin:
+    build:
+      context: .
+      dockerfile: Dockerfile.admin
+    ports:
+      - "51495:8501"
+    environment:
+      - API_URL=http://api:8000
+      - API_KEY=${API_KEY}
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-dexy_training}:${POSTGRES_PASSWORD:-change_me_in_production}@postgres:5432/${POSTGRES_DB:-dexy_training}
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    networks:
+      - training-net
+    restart: unless-stopped
+    labels:
+      - "coolify.managed=true"
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-dexy_training}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-change_me_in_production}
+      - POSTGRES_DB=${POSTGRES_DB:-dexy_training}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-dexy_training}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - training-net
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --maxmemory 512mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - training-net
+    restart: unless-stopped
+
+volumes:
+  model-artifacts:
+  training-data:
+  postgres-data:
+
+networks:
+  training-net:
+    driver: bridge

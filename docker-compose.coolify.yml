@@ -1,0 +1,126 @@
+version: "3.9"
+
+# Coolify deploy file for the current training-server stack.
+# This mirrors the working local compose topology (FastAPI + Celery + Redis + Postgres)
+# and adds multiple GPU-runtime hints for Docker/Coolify compatibility.
+
+services:
+  training-api:
+    image: ghcr.io/${REGISTRY_OWNER:?REGISTRY_OWNER env var required}/training-api:latest
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-dexy_training}:${POSTGRES_PASSWORD:-change_me_in_production}@training-postgres:5432/${POSTGRES_DB:-dexy_training}
+      REDIS_URL: redis://training-redis:6379/0
+      CELERY_BROKER_URL: redis://training-redis:6379/0
+      CELERY_RESULT_BACKEND: redis://training-redis:6379/0
+      API_KEY: ${API_KEY:?API_KEY env var required}
+      MODEL_ARTIFACT_PATH: /data/models
+      TRAINING_DATA_PATH: /data/datasets
+      HOTPATH_GRPC_TARGET: ${HOTPATH_GRPC_TARGET:-host.docker.internal:50051}
+      HOTPATH_PUSH_ENABLED: ${HOTPATH_PUSH_ENABLED:-false}
+    volumes:
+      - model-artifacts:/data/models
+      - training-data:/data/datasets
+      - training-logs:/data/logs
+    depends_on:
+      training-postgres:
+        condition: service_healthy
+      training-redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      - "coolify.managed=true"
+
+  training-worker-gpu:
+    image: ghcr.io/${REGISTRY_OWNER:?REGISTRY_OWNER env var required}/training-api:latest
+    restart: unless-stopped
+    command: ["celery", "-A", "src.workers.celery_app", "worker", "--loglevel=info", "--concurrency=2"]
+    shm_size: "32gb"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-dexy_training}:${POSTGRES_PASSWORD:-change_me_in_production}@training-postgres:5432/${POSTGRES_DB:-dexy_training}
+      REDIS_URL: redis://training-redis:6379/0
+      CELERY_BROKER_URL: redis://training-redis:6379/0
+      CELERY_RESULT_BACKEND: redis://training-redis:6379/0
+      MODEL_ARTIFACT_PATH: /data/models
+      TRAINING_DATA_PATH: /data/datasets
+      CUDA_DEVICE_ORDER: PCI_BUS_ID
+      CUDA_VISIBLE_DEVICES: ${CUDA_VISIBLE_DEVICES:-0,1}
+      NVIDIA_VISIBLE_DEVICES: ${NVIDIA_VISIBLE_DEVICES:-all}
+      NVIDIA_DRIVER_CAPABILITIES: ${NVIDIA_DRIVER_CAPABILITIES:-compute,utility}
+      PYTORCH_CUDA_ALLOC_CONF: ${PYTORCH_CUDA_ALLOC_CONF:-max_split_size_mb:512}
+      HOTPATH_GRPC_TARGET: ${HOTPATH_GRPC_TARGET:-host.docker.internal:50051}
+      HOTPATH_PUSH_ENABLED: ${HOTPATH_PUSH_ENABLED:-false}
+    volumes:
+      - model-artifacts:/data/models
+      - training-data:/data/datasets
+      - training-logs:/data/logs
+    depends_on:
+      training-postgres:
+        condition: service_healthy
+      training-redis:
+        condition: service_healthy
+    # `gpus`/`runtime` help on Docker Compose-based platforms; `deploy.devices`
+    # helps on platforms that honor swarm-style reservations.
+    runtime: nvidia
+    gpus: all
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  training-admin:
+    image: ghcr.io/${REGISTRY_OWNER:?REGISTRY_OWNER env var required}/training-admin:latest
+    restart: unless-stopped
+    ports:
+      - "8501:8501"
+    environment:
+      API_URL: http://training-api:8000
+      API_KEY: ${API_KEY:?API_KEY env var required}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-dexy_training}:${POSTGRES_PASSWORD:-change_me_in_production}@training-postgres:5432/${POSTGRES_DB:-dexy_training}
+    depends_on:
+      training-api:
+        condition: service_healthy
+    labels:
+      - "coolify.managed=true"
+
+  training-redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --maxmemory 512mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  training-postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-dexy_training}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_in_production}
+      POSTGRES_DB: ${POSTGRES_DB:-dexy_training}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-dexy_training}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  model-artifacts:
+  training-data:
+  training-logs:
+  postgres-data:
