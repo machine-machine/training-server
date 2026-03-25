@@ -1,0 +1,30 @@
+{
+  "version": 477,
+  "timestamp": "2026-03-24T11:31:24.541434",
+  "state": {
+    "latency": {
+      "mean_ms": 150.0,
+      "std_ms": 50.0,
+      "min_ms": 50.0,
+      "max_ms": 2000.0,
+      "p95_ms": 350.0,
+      "p99_ms": 500.0
+    },
+    "slippage": {
+      "base_bps": 50.0,
+      "volatility_coef": 0.5,
+      "liquidity_coef": 0.3,
+      "mev_penalty_mean_bps": 100.0,
+      "mev_probability": 0.3
+    },
+    "inclusion": {
+      "base_probability": 0.85,
+      "congestion_decay": 0.1,
+      "priority_fee_boost": 0.05,
+      "max_probability": 0.98
+    },
+    "last_calibration": null,
+    "observations_used": 0,
+    "calibration_history": []
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "version": 473,
+  "timestamp": "2026-03-23T17:21:46.854433",
+  "state": {
+    "coefficients": {
+      "slippage": {
+        "base_bps": 30.0,
+        "size_exponent": 50.0,
+        "volatility_coef": 0.8,
+        "liquidity_coef": 0.5
+      },
+      "latency": {
+        "base_mean_ms": 150.0,
+        "base_std_ms": 50.0,
+        "congestion_multiplier_low": 0.8,
+        "congestion_multiplier_high": 2.5
+      },
+      "mev": {
+        "sandwich_probability": 0.25,
+        "sandwich_cost_bps": 100.0,
+        "jito_discount_factor": 0.7
+      },
+      "inclusion": {
+        "base_prob": 0.88,
+        "size_decay": 0.02,
+        "congestion_decay": 0.15,
+        "partial_fill_threshold": 0.05
+      },
+      "staleness": {
+        "max_quote_age_ms": 2000,
+        "penalty_bps": 5.0
+      },
+      "survivorship": {
+        "discount": 0.15,
+        "rug_rate_24h": 0.12
+      }
+    },
+    "last_report": null,
+    "calibration_history": []
+  }
+}

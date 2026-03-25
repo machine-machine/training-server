@@ -1,76 +1,149 @@
-[build-system]
-requires = ["setuptools>=68.0", "wheel"]
-build-backend = "setuptools.build_meta"
-
 [project]
-name = "dexy-training-server"
+name = "engine-coldpath"
 version = "0.1.0"
-description = "2DEXY GPU Training Server — train and export ML models for HotPath inference"
-requires-python = ">=3.12"
-
+description = "Cold Path engine for training, optimization, and backtesting"
+authors = [{ name = "SniperDesk" }]
+requires-python = ">=3.11"
 dependencies = [
-    # API
-    "fastapi>=0.115.0",
-    "uvicorn[standard]>=0.32.0",
-    "python-multipart>=0.0.9",
-    # Task queue
-    "celery[redis]>=5.4.0",
-    "redis>=5.0.0",
-    # Database
-    "sqlalchemy[asyncio]>=2.0",
-    "asyncpg>=0.29.0",
-        "psycopg2-binary>=2.9.0",
-    "alembic>=1.13.0",
-    # ML core
-    "numpy>=1.26",
+    "grpcio>=1.60",
+    "grpcio-tools>=1.60",
+    "protobuf>=4.25",
+    "numpy>=1.26,<2.0",  # Pinned for PyTorch 2.2 compatibility
     "pandas>=2.1",
     "polars>=0.20",
+    "duckdb>=1.1.0",          # Columnar queries for fast research pipelines
     "scikit-learn>=1.4",
-    "scipy>=1.12",
-    "numba>=0.59",
-    "xgboost>=2.0",
-    "lightgbm>=4.2",
-    # gRPC (HotPath artifact push)
-    "grpcio>=1.60.0",
-    "grpcio-tools>=1.60.0",
-    "protobuf>=4.25.0",
-    # Utilities
     "httpx>=0.26",
-    "pydantic>=2.5",
-    "python-dotenv>=1.0",
-    "psutil>=5.9.0",
+    "sqlalchemy>=2.0",
+    "scipy>=1.12",
+    "numba>=0.59",      # JIT compilation for 10-100x backtesting speedup
+    "vectorbt>=0.26.6", # Vectorized backtesting for fast parameter sweeps
+    "riskfolio-lib>=7.2.1", # Portfolio risk/optimization toolkit
+    "orjson>=3.10",     # Fast JSON for logging/artifacts
+    "pydantic>=2.6",    # Strong config/validation for data vendors
+    "hydra-core>=1.3",  # Structured experiment configs
+    "joblib>=1.3",      # Parallel feature/factor computations
+    "optuna>=3.5",      # Hyperparameter optimization
+    "torch>=2.2",       # Deep learning (MPS/CPU wheels on macOS arm64)
+    "dune-client>=1.5", # Dune Analytics API
+    "aiohttp>=3.9",     # Async HTTP for data fetching
+    "anthropic>=0.40.0", # Claude AI API client
+    "fastapi>=0.115.0",  # REST API framework
+    "uvicorn>=0.32.0",   # ASGI server
+    "psutil>=5.9.0",     # System memory monitoring
+    # Online learning
+    "river>=0.21.0",     # Incremental/streaming ML for continuous model updates
+    # Portfolio optimization
+    "pyportfolioopt>=1.5.0",  # Mean-variance and Black-Litterman optimization
 ]
 
 [project.optional-dependencies]
-gpu = [
-    "torch>=2.2.0",
-    "optuna>=3.5",
-    # Fraud model dependencies
-    "imbalanced-learn>=0.12.0",
-    "tpot>=0.12.0",
-]
-admin = [
-    "streamlit>=1.31.0",
-    "plotly>=5.18.0",
-    "sqlalchemy[asyncio]>=2.0",
-    "asyncpg>=0.29.0",
-    "psutil>=5.9.0",
-    "httpx>=0.26",
-]
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
-    "ruff>=0.2.0",
+    "black>=24.0",
+    "ruff>=0.1",
     "mypy>=1.8",
 ]
+postgres = [
+    "asyncpg>=0.29",
+]
+automl = [
+    "tpot>=0.12",
+    "deap>=1.4",
+]
+ml = [
+    "imbalanced-learn>=0.12",
+]
+torch = [
+    "torch>=2.0",           # Deep learning framework
+    "transformers>=4.36.0", # Time series transformers and FinGPT support
+]
+vllm = [
+    "vllm>=0.4.0",          # High-throughput LLM inference (10-20x faster)
+]
+feast = [
+    "feast>=0.35.0",        # Feature store for real-time feature serving
+    "redis>=5.0.0",         # Redis online store backend
+]
+# Free ML Training Tools & Datasets
+free-ml = [
+    "xgboost>=2.0.0",       # Gradient boosting
+    "lightgbm>=4.0.0",      # Fast gradient boosting
+    "yfinance>=0.2.0",      # Yahoo Finance data
+    "datasets>=2.0.0",      # HuggingFace datasets
+    "stable-baselines3>=2.0.0",  # Reinforcement learning
+    "mlflow>=2.0.0",        # Experiment tracking
+    "wandb>=0.16.0",        # Experiment tracking (free tier)
+    "ta>=0.11.0",           # Technical analysis indicators
+]
+all = [
+    "asyncpg>=0.29",
+    "tpot>=0.12",
+    "deap>=1.4",
+    "imbalanced-learn>=0.12",
+    "torch>=2.0",
+    "transformers>=4.36.0",
+    "vllm>=0.4.0",
+    "feast>=0.35.0",
+    "redis>=5.0.0",
+    "xgboost>=2.0.0",
+    "lightgbm>=4.0.0",
+    "yfinance>=0.2.0",
+    "datasets>=2.0.0",
+    "stable-baselines3>=2.0.0",
+    "mlflow>=2.0.0",
+    "wandb>=0.16.0",
+    "ta>=0.11.0",
+]
 
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["src*"]
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/coldpath"]
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
 
 [tool.ruff]
-target-version = "py312"
 line-length = 100
+exclude = ["*_pb2.py", "*_pb2_grpc.py"]
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I"]
+select = ["E", "F", "W", "I", "N", "UP", "B"]
+ignore = [
+    "UP035",  # Allow typing.Dict/List for optional import compatibility
+    "N803",   # Allow uppercase X for feature matrices (ML convention)
+    "N806",   # Allow uppercase X for feature matrices (ML convention)
+]
+
+[tool.ruff.lint.per-file-ignores]
+# gRPC servicer implementations must use PascalCase method names matching proto definitions
+"src/coldpath/ipc/coldpath_servicer.py" = ["N802"]
+"src/coldpath/services/feature_service_server.py" = ["N802"]
+"src/coldpath/services/social_features_service.py" = ["N802"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::pytest.PytestUnraisableExceptionWarning",
+]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+python_classes = ["Test*"]
+addopts = "-v --tb=short"
+pythonpath = ["src"]
+markers = [
+    "integration: Tests requiring external services (Ollama, databases, etc.)",
+    "slow: Tests that take longer than 5 seconds",
+]

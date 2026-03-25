@@ -1,0 +1,59 @@
+{
+  "version": 11128,
+  "timestamp": "2026-03-24T18:44:37.367561",
+  "state": {
+    "state": "trading",
+    "execution_mode": "shadow_trading",
+    "config": {
+      "min_observations_to_trade": 100,
+      "learning_duration_hours": 24,
+      "min_win_rate_to_trade": 0.45,
+      "paper_mode": true,
+      "skip_learning": true,
+      "min_confidence_to_trade": 0.7,
+      "min_confidence_for_full_size": 0.85,
+      "max_position_sol": 0.03,
+      "min_position_sol": 0.001,
+      "kelly_fraction": 0.15,
+      "max_daily_volume_sol": 0.5,
+      "max_daily_loss_sol": 0.08,
+      "max_daily_trades": 1550,
+      "max_concurrent_positions": 3,
+      "auto_pause_enabled": true,
+      "min_trades_for_pause": 20,
+      "min_win_rate_threshold": 0.3,
+      "max_fraud_score": 0.4,
+      "min_liquidity_usd": 10000,
+      "max_fdv_usd": 5000000,
+      "min_holder_count": 50,
+      "min_token_age_seconds": 0,
+      "min_volume_24h_usd": 0.0,
+      "max_top_holder_pct": null,
+      "max_volatility_1h": null,
+      "default_slippage_bps": 300,
+      "max_slippage_bps": 1000,
+      "signal_expiry_seconds": 30,
+      "cooldown_after_loss_seconds": 60,
+      "decision_timeout_ms": 0,
+      "ml_strategy": "hybrid",
+      "risk_mode": "conservative",
+      "ensemble_enabled": true,
+      "trailing_stop_enabled": false,
+      "trailing_stop_percent": 5.0
+    },
+    "daily_metrics": {
+      "date": "2026-03-24T11:28:55.761966",
+      "total_volume_sol": 0.0,
+      "total_pnl_sol": 0.0,
+      "trade_count": 0,
+      "win_count": 0,
+      "loss_count": 0
+    },
+    "learning_metrics": {
+      "observations": 14855,
+      "paper_trades": 22,
+      "paper_wins": 6,
+      "start_time": "2026-03-23T14:59:04.635345"
+    }
+  }
+}
