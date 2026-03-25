@@ -1,12 +1,13 @@
 version: "3.9"
 
-# Coolify deploy file for the current training-server stack.
-# This mirrors the working local compose topology (FastAPI + Celery + Redis + Postgres)
-# and adds multiple GPU-runtime hints for Docker/Coolify compatibility.
+# Coolify-native deploy: builds from Dockerfiles instead of pulling GHCR images.
+# Point Coolify to this file when creating a docker-compose service.
 
 services:
   training-api:
-    image: ghcr.io/${REGISTRY_OWNER:?REGISTRY_OWNER env var required}/training-api:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.api
     restart: unless-stopped
     ports:
       - "8000:8000"
@@ -34,12 +35,14 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 30s
+      start_period: 60s
     labels:
       - "coolify.managed=true"
 
   training-worker-gpu:
-    image: ghcr.io/${REGISTRY_OWNER:?REGISTRY_OWNER env var required}/training-api:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.api
     restart: unless-stopped
     command: ["celery", "-A", "src.workers.celery_app", "worker", "--loglevel=info", "--concurrency=2"]
     shm_size: "32gb"
@@ -66,10 +69,6 @@ services:
         condition: service_healthy
       training-redis:
         condition: service_healthy
-    # `gpus`/`runtime` help on Docker Compose-based platforms; `deploy.devices`
-    # helps on platforms that honor swarm-style reservations.
-    runtime: nvidia
-    gpus: all
     deploy:
       resources:
         reservations:
@@ -79,7 +78,9 @@ services:
               capabilities: [gpu]
 
   training-admin:
-    image: ghcr.io/${REGISTRY_OWNER:?REGISTRY_OWNER env var required}/training-admin:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.admin
     restart: unless-stopped
     ports:
       - "8501:8501"
